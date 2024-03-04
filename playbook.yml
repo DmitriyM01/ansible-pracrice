@@ -1,0 +1,82 @@
+  - hosts: serverTwo
+    become: yes
+    vars:
+      user_name: ansible-worker
+
+    tasks:
+      - name: add new user - ansible-worker
+        ansible.builtin.user:
+          name: "{{ user_name }}"
+          shell: /usr/bin/bash
+
+      - name: create folder .ssh
+        file:
+          path: "/home/{{ user_name }}/.ssh"
+          state: directory
+
+      - name: add ssh-connection
+        ansible.builtin.copy:
+          src: "./ssh_keys/id_rsa.pub"
+          dest: "/home/{{ user_name }}/.ssh/authorized_keys"
+
+      - name: add GitHub-connection
+        ansible.builtin.copy:
+          src: "./ssh_keys/id_rsa"
+          dest: "/home/{{ user_name }}/.ssh/id_rsa"
+
+      - file:
+          path: "/home/{{ user_name }}/.ssh/id_rsa"
+          mode: "600"
+
+      - name: install git
+        ansible.builtin.apt:
+          name: git
+          state: present
+          update_cache: true
+
+      - name: clone repo
+        ansible.builtin.git:
+          repo: "git@github.com:iphilka/stud-template.git"
+          dest: "/home/{{ user_name }}/www/stud-template"
+          accept_hostkey: true
+          key_file: "/home/{{ user_name }}/.ssh/id_rsa"
+
+      - name: create folder example.ru
+        file:
+          path: "/home/{{ user_name }}/example.ru"
+          state: directory
+
+      - name: clone index.html
+        ansible.builtin.copy:
+          src: "./files/index.html"
+          dest: "/home/{{ user_name }}/example.ru/index.html"
+
+      - name: install nginx
+        apt:
+          name: nginx
+          state: present
+          update_cache: true
+
+      - name: update nginx config
+        ansible.builtin.copy:
+          src: ./files/ansible.iphilka.ru.conf
+          dest: /etc/nginx/sites-available/ansible.iphilka.ru.conf
+          mode: "776"
+        notify:
+          - restart nginx
+
+      - name: update nginx default config
+        ansible.builtin.copy:
+          src: ./files/nginx.conf
+          dest: /etc/nginx/nginx.conf
+        notify:
+          - restart nginx
+
+      # - command: ln -s /etc/nginx/sites-available/ansible.iphilka.ru.conf /etc/nginx/sites-enabled/ansible.iphilka.ru.conf
+
+   
+    handlers:
+      - name: restart nginx
+        ansible.builtin.service:
+          name: nginx
+          state: reloaded
