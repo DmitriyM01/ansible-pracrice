@@ -1,4 +1,4 @@
 ssh_keys/
 /Makefile
 /delete.yml
-/hosts.ini
+hosts.ini
